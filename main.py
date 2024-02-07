@@ -1,23 +1,25 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 import uvicorn
 import random
-from model import Model
+import model
 
 app = FastAPI()
 
 
 @app.get('/{id}')
 async def redirect(id):
-    result = await Model.find({'shorten_url': id})
-    return RedirectResponse(f'/{result[0]}')
+    result = await model.find({'shorten_url': id})
+    if result == None:
+        raise HTTPException(status_code=404)
+    return RedirectResponse(f'{result["full_url"]}')
 
 @app.post('/shorten-url')
 async def add_shorten_url(full_url: str):
     # search for full_url 
-    result = await Model.find({'full_url': full_url})
+    result = await model.find({'full_url': full_url})
     # full_url exist
-    if len(result) > 0:
+    if result != None:
         return result.shorten_url
     # full_url not exist
     # all characters can be used in shorten_url code
@@ -33,11 +35,11 @@ async def add_shorten_url(full_url: str):
         for i in range(6):
             shorten_url += random.choice(characters)
         # find exist repeat shorten url code
-        result = await Model.find({'shorten_url': shorten_url})
-        if result == None or len(result) == 0:  # no repeat
+        result = await model.find({'shorten_url': shorten_url})
+        if result == None:  # no repeat
             repeat = False
     # add shorten_url to database
-    await Model.insert({
+    await model.insert({
         'shorten_url': shorten_url, 
         'full_url': full_url
     })
