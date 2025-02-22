@@ -1,13 +1,17 @@
 use actix_web::{delete, get, post, web, App, HttpResponse, HttpServer, Responder, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::repository;
 use crate::util;
 
 #[derive(Deserialize)]
 struct ShortenUrl {
     shorten_id: Option<String>,
     original_url: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct StringVec {
+    result: Vec<String>,
 }
 
 #[get("/search")]
@@ -17,24 +21,39 @@ async fn search_url(query: web::Query<ShortenUrl>) -> impl Responder {
 
     // got shorten id, return original url
     if let Some(shorten_id) = shorten_id {
-        // TODO: Implement search logic
+        // get repository
         let repo = match util::get_repo().await {
             Ok(repo) => repo,
             Err(e) => return HttpResponse::InternalServerError().body(format!("Error connectiong to database: {:?}", e)),
         };
-
+        // find and return data
         return match repo.find_by_shorten_id(&shorten_id).await {
-            // TODO: modify the format of return value
-            Ok(model) => HttpResponse::Ok().body(format!("Get shorten ID: {:?}, return original URL: {:?}", shorten_id, model.original_url)),
-            // TODO: should be 404 not found or what
-            Err(e) => HttpResponse::InternalServerError().body(format!("Error searching for shorten ID: {:?}", e)),
+            Ok(model) => match model {
+                Some(model) => HttpResponse::Ok().body(model.original_url),
+                None => HttpResponse::NotFound().body(format!("Shorten ID {:?} not found", shorten_id)),
+            },
+            Err(e) => HttpResponse::InternalServerError().body(format!("Database error: {:?}", e)),
         };
     }
 
     // get original url, return shorten id
     if let Some(original_url) = original_url {
         // TODO: Implement search logic
-        return HttpResponse::Ok().body(format!("Get original URL: {:?}, return shorten ID", original_url));
+        // get repository
+        let repo = match util::get_repo().await {
+            Ok(repo) => repo,
+            Err(e) => return HttpResponse::InternalServerError().body(format!("Error connectiong to database: {:?}", e)),
+        };
+        // find and return data
+        return match repo.find_all_by_original_url(&original_url).await {
+            Ok(model_vec) => HttpResponse::Ok().json(
+                StringVec { result: {
+                    // make it a original_url string vector
+                    model_vec.iter().map(|model| model.shorten_id.clone()).collect()
+                }}
+            ),
+            Err(e) => HttpResponse::InternalServerError().body(format!("Database error: {:?}", e)),
+        };
     }
 
     // did not provide any arguments
