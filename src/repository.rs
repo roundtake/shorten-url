@@ -49,7 +49,7 @@ impl ShortenUrlRepository {
             ..Default::default()
         };
         
-        let res = ShortenUrl::insert(new_shorten_url)
+        let _ = ShortenUrl::insert(new_shorten_url)
             .exec(&self.db_conn)
             .await?;
 
