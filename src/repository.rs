@@ -1,4 +1,4 @@
-use crate::entity::{prelude::*, shorten_url};
+use crate::entities::{prelude::*, shorten_url};
 use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter};
 
 #[derive(Debug, Clone)]
