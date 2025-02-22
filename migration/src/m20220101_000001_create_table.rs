@@ -1,4 +1,4 @@
-use sea_orm_migration::{prelude::*, schema::*};
+use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,9 +11,24 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(ShortenUrl::Table)
                     .if_not_exists()
-                    .col(pk_auto(ShortenUrl::Id))
-                    .col(string(ShortenUrl::ShortenId))
-                    .col(string(ShortenUrl::OriginalUrl))
+                    .col(
+                        ColumnDef::new(ShortenUrl::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key()
+                    )
+                    .col(
+                        ColumnDef::new(ShortenUrl::ShortenId)
+                            .string()
+                            .not_null()
+                            .unique_key()
+                    )
+                    .col(
+                        ColumnDef::new(ShortenUrl::OriginalUrl)
+                            .string()
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await
