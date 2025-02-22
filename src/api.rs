@@ -3,10 +3,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::util;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct ShortenUrl {
     shorten_id: Option<String>,
     original_url: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct ShortenUrlVec {
+    result: Vec<ShortenUrl>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -74,10 +79,26 @@ async fn create_shorten_url(body: web::Json<ShortenUrl>) -> Result<String> {
     let shorten_id = match shorten_id {
         Some(shorten_id) => shorten_id,
         None => util::gen_random_id(6), // create one if not provided
+        // TODO: regenerate if shorten_id already exists
     };
     let original_url = original_url.unwrap();
 
-    // TODO: add to database
+    // get repository
+    let repo = match util::get_repo().await {
+        Ok(repo) => repo,
+        Err(e) => return Err(actix_web::error::ErrorInternalServerError(format!("Error connecting to database: {:?}", e))),
+    };
+
+    // create and insert data
+    match repo.create(&shorten_id, &original_url).await {
+        Ok(_) => (),
+        Err(e) => {
+            if e.to_string().contains("Shorten ID already exists") {
+                return Err(actix_web::error::ErrorBadRequest(format!("Shorten ID {:?} already exists", shorten_id)));
+            }
+            return Err(actix_web::error::ErrorInternalServerError(format!("Database error: {:?}", e)));
+        },
+    };
 
     // return response
     let response = format!("Shortened {:?} to {:?}", original_url, shorten_id);
@@ -96,25 +117,52 @@ async fn delete_shorten_url(body: web::Json<ShortenUrl>) -> Result<String> {
         return Err(actix_web::error::ErrorBadRequest("Cannot provide both shorten_id and original_url"));
     }
 
-    // TODO: delete from database
+    // get repository
+    let repo = match util::get_repo().await {
+        Ok(repo) => repo,
+        Err(e) => return Err(actix_web::error::ErrorInternalServerError(format!("Error connecting to database: {:?}", e))),
+    };
+
+    // delete from database
     if let Some(shorten_id) = shorten_id {
-        // TODO: Implement delete logic for shorten id
-        return Ok(format!("Delete shorten URL {:?}", shorten_id));
+        // delete by shorten id
+        repo.delete_by_shorten_id(&shorten_id).await.map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("Database error: {:?}", e))
+        })?;
+        return Ok(format!("Deleted shorten URL {:?}", shorten_id));
+
     } else if let Some(original_url) = original_url {
-        // TODO: Implement delete logic for original url
-        return Ok(format!("Delete original URL {:?}", original_url));
+        // delete by original url
+        repo.delete_by_original_url(&original_url).await.map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!("Database error: {:?}", e))
+        })?;
+        return Ok(format!("Deleted original URL {:?}", original_url));
     }
 
-    // return response
-    panic!("should not reach here")
+    panic!("Should not reach here")
 }
 
 #[get("/list")]
 async fn list_shorten_url() -> impl Responder {
-    // TODO: get all shorten URLs from database
+    // get repo
+    let repo = match util::get_repo().await {
+        Ok(repo) => repo,
+        Err(e) => return HttpResponse::InternalServerError().body(format!("Error connecting to database: {:?}", e)),
+    };
 
-    // TODO: return response
-    HttpResponse::Ok().body("List Shorten URL")
+    // get all shorten URLs from database
+    let model_vec = match repo.get_all().await {
+        Ok(model_vec) => model_vec,
+        Err(e) => return HttpResponse::InternalServerError().body(format!("Database error: {:?}", e)),
+    };
+
+    // Return the list of shortened URLs as a JSON response
+    HttpResponse::Ok().json(ShortenUrlVec { result: 
+        model_vec.iter().map(|model| ShortenUrl {
+            shorten_id: Some(model.shorten_id.clone()),
+            original_url: Some(model.original_url.clone()),
+        }).collect()
+    })
 }
 
 #[get("/{shorten_id}")]
@@ -122,10 +170,23 @@ async fn redirect_to_original(path: web::Path<(String,)>) -> impl Responder {
     // get arguments
     let (shorten_id,) = path.into_inner();
 
-    // TODO: get data from database
+    // get repo
+    let repo = match util::get_repo().await {
+        Ok(repo) => repo,
+        Err(_) => return web::Redirect::to(format!("/search?shorten_id={}", shorten_id)), // error connecting to database
+    };
 
-    // TODO: redirect to original URL
-    web::Redirect::to("https://google.com").permanent()
+    // get data from database
+    let model = match repo.find_by_shorten_id(&shorten_id).await {
+        Ok(model_ops) => match model_ops {
+            Some(model) => model,
+            None => return web::Redirect::to(format!("/search?shorten_id={}", shorten_id)), // not found
+        },
+        Err(_) => return web::Redirect::to(format!("/search?shorten_id={}", shorten_id)), // database error
+    };
+
+    // redirect to original URL
+    web::Redirect::to(model.original_url).permanent()
 }
 
 #[actix_web::main]
