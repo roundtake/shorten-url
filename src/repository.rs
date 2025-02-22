@@ -8,7 +8,10 @@ pub struct ShortenUrlRepository {
 
 impl ShortenUrlRepository {
     /// Find a record with the same shorten ID
-    pub async fn find_by_shorten_id(&self, shorten_id: &str) -> Result<Option<shorten_url::Model>, DbErr> {
+    pub async fn find_by_shorten_id(
+        &self,
+        shorten_id: &str,
+    ) -> Result<Option<shorten_url::Model>, DbErr> {
         ShortenUrl::find()
             .filter(shorten_url::Column::ShortenId.eq(shorten_id))
             .one(&self.db_conn)
@@ -16,7 +19,10 @@ impl ShortenUrlRepository {
     }
 
     /// Find all records with the same original URL
-    pub async fn find_all_by_original_url(&self, original_url: &str) -> Result<Vec<shorten_url::Model>, DbErr> {
+    pub async fn find_all_by_original_url(
+        &self,
+        original_url: &str,
+    ) -> Result<Vec<shorten_url::Model>, DbErr> {
         ShortenUrl::find()
             .filter(shorten_url::Column::OriginalUrl.eq(original_url))
             .all(&self.db_conn)
@@ -25,9 +31,7 @@ impl ShortenUrlRepository {
 
     /// Get all records from the database
     pub async fn get_all(&self) -> Result<Vec<shorten_url::Model>, DbErr> {
-        ShortenUrl::find()
-            .all(&self.db_conn)
-            .await
+        ShortenUrl::find().all(&self.db_conn).await
     }
 
     /// Create a new record with the given shorten ID and original URL
@@ -48,7 +52,7 @@ impl ShortenUrlRepository {
             original_url: ActiveValue::Set(original_url.to_owned()),
             ..Default::default()
         };
-        
+
         let _ = ShortenUrl::insert(new_shorten_url)
             .exec(&self.db_conn)
             .await?;
@@ -64,9 +68,7 @@ impl ShortenUrlRepository {
             .await?;
 
         let to_be_delete: ActiveModel = to_be_delete.unwrap().into();
-        ShortenUrl::delete(to_be_delete)
-            .exec(&self.db_conn)
-            .await?;
+        ShortenUrl::delete(to_be_delete).exec(&self.db_conn).await?;
 
         Ok(())
     }
