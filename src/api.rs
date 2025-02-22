@@ -1,5 +1,6 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, Result, delete, get, post, web};
 use serde::{Deserialize, Serialize};
+use std::env;
 
 use crate::util;
 
@@ -244,6 +245,12 @@ async fn redirect_to_original(path: web::Path<(String,)>) -> impl Responder {
 
 #[actix_web::main]
 pub async fn start() -> std::io::Result<()> {
+    let host: String = env::var("HOST").unwrap_or("localhost".to_string());
+    let port: u16 = env::var("PORT")
+        .unwrap_or("8080".to_string())
+        .parse()
+        .unwrap_or(8080);
+
     HttpServer::new(|| {
         App::new()
             .service(search_url)
@@ -252,7 +259,7 @@ pub async fn start() -> std::io::Result<()> {
             .service(list_shorten_url)
             .service(redirect_to_original)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind((host, port))?
     .run()
     .await
 }
