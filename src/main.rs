@@ -1,6 +1,7 @@
 extern crate dotenv;
 
 mod api;
+mod entity;
 mod repository;
 mod util;
 

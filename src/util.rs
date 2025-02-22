@@ -1,4 +1,7 @@
+use std::env;
 use rand::Rng;
+use sea_orm::{Database, DatabaseConnection, DbErr};
+use crate::repository::ShortenUrlRepository;
 
 const AVAILABLE_CHARS: [char; 57] = [
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q',
@@ -7,6 +10,7 @@ const AVAILABLE_CHARS: [char; 57] = [
     'x', 'y', 'z', '2', '3', '4', '5', '6', '7', '8', '9', '-'
 ];
 
+/// Generate a random ID with the given length
 pub fn gen_random_id(length: i32) -> String {
     let mut rng = rand::rng();
     let random_id: String = (0..length)
@@ -14,4 +18,18 @@ pub fn gen_random_id(length: i32) -> String {
         .map(|index| AVAILABLE_CHARS[index])
         .collect();
     random_id
+}
+
+/// Get a database connection
+pub async fn get_db_conn() -> Result<DatabaseConnection, DbErr> {
+    let database_url = env::var("DATABASE_URL").unwrap_or("postgres://postgres:postgres@localhost:5432/shorten_url".to_string());
+
+    let db_conn = Database::connect(database_url).await?;
+    Ok(db_conn)
+}
+
+/// Get a repository
+pub async fn get_repo() -> Result<ShortenUrlRepository, DbErr> {
+    let db_conn = get_db_conn().await?;
+    Ok(ShortenUrlRepository { db_conn })
 }

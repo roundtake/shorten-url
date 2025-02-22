@@ -18,7 +18,17 @@ async fn search_url(query: web::Query<ShortenUrl>) -> impl Responder {
     // got shorten id, return original url
     if let Some(shorten_id) = shorten_id {
         // TODO: Implement search logic
-        return HttpResponse::Ok().body(format!("Get shorten ID: {:?}, return original URL", shorten_id));
+        let repo = match util::get_repo().await {
+            Ok(repo) => repo,
+            Err(e) => return HttpResponse::InternalServerError().body(format!("Error connectiong to database: {:?}", e)),
+        };
+
+        return match repo.find_by_shorten_id(&shorten_id).await {
+            // TODO: modify the format of return value
+            Ok(model) => HttpResponse::Ok().body(format!("Get shorten ID: {:?}, return original URL: {:?}", shorten_id, model.original_url)),
+            // TODO: should be 404 not found or what
+            Err(e) => HttpResponse::InternalServerError().body(format!("Error searching for shorten ID: {:?}", e)),
+        };
     }
 
     // get original url, return shorten id
