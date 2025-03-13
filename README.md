@@ -24,7 +24,7 @@ This project is written in Rust, using Actix Web for web API service and Sea ORM
 3. Run migration command
 
     ```sh
-    sea-orm-cli migration up
+    sea-orm-cli migrate up
     ```
 
 ### Generate database entity code
