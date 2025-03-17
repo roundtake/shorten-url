@@ -1,6 +1,6 @@
 # shorten-url
 
-Roundtake shorten url service.
+A shorten URL service written in Rust.
 
 This project is written in Rust, using Actix Web for web API service and Sea ORM for PostgreSQL database manipulation. 
 
